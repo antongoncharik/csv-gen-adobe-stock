@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload Files</title>
+</head>
+
+<body>
+    <h1>Upload Files</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <label for="photos">Upload Photos:</label>
+        <input type="file" name="photos" id="photos" required multiple><br>
+        
+        <label for="text">Upload Text File:</label>
+        <input type="file" name="text" id="text" required><br>
+        
+        <button type="submit">Upload</button>
+    </form>
+</body>
+</html>

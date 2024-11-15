@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Table View</title>
+</head>
+<body>
+    <h1>Uploaded Data</h1>
+    <table border="1">
+        <tr>
+            <th>Name</th>
+            <th>Title</th>
+            <th>Key Words</th>
+        </tr>
+        {{ range . }}
+        <tr>
+            <td>{{ .Name }}</td>
+            <td>{{ .Title }}</td>
+            <td>{{ .Keywords }}</td>
+        </tr>
+        {{ end }}
+    </table>
+    <br>
+    <div>
+        <button onclick="goToUploadPage()">Upload files (back)</button>
+        <button onclick="downloadCSV()">Download CSV</button>    
+    </div>
+
+    <script>
+       const goToUploadPage = () => window.location.replace('/')
+       const downloadCSV = () => window.location.replace('/download')
+    </script></body>
+</html>
