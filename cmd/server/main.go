@@ -1,11 +1,16 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/antongoncharik/csv-gen-adobe-stock/internal/handlers"
 )
 
 func main() {
-	handlers.GetKeywords()
+	str := handlers.GetKeywords()
+
+	fmt.Println("Response:", str)
+
 	select {}
 	// http.HandleFunc("/", handlers.UploadTemplateHandler)
 	// http.HandleFunc("/upload", handlers.UploadFileHandler)

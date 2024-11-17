@@ -5,20 +5,49 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 )
 
-const API_URL = "https://api.openai.com/v1/chat/completions"
+type Response struct {
+	Candidates    []Candidate   `json:"candidates"`
+	UsageMetadata UsageMetadata `json:"usageMetadata"`
+	ModelVersion  string        `json:"modelVersion"`
+}
 
-const API_KEY = ""
+type Candidate struct {
+	Content      Content `json:"content"`
+	FinishReason string  `json:"finishReason"`
+	AvgLogprobs  float64 `json:"avgLogprobs"`
+}
+
+type Content struct {
+	Parts []Part `json:"parts"`
+	Role  string `json:"role"`
+}
+
+type Part struct {
+	Text string `json:"text"`
+}
+
+type UsageMetadata struct {
+	PromptTokenCount     int `json:"promptTokenCount"`
+	CandidatesTokenCount int `json:"candidatesTokenCount"`
+	TotalTokenCount      int `json:"totalTokenCount"`
+}
 
 type Data struct {
 	Name     string
 	Title    string
 	Keywords string
 }
+
+const API_URL = "https://api.openai.com/v1/chat/completions"
+
+const API_KEY = ""
 
 var data []Data
 
@@ -67,7 +96,6 @@ func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		data = append(data, Data{Name: photoNames[i], Title: titles[i], Keywords: "yfguhj,yuio,ghyjkl"})
 	}
 
-	// var keywords []string
 	var keywords string
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -90,55 +118,58 @@ func splitLines(text string) []string {
 }
 
 func GetKeywords() string {
-	title := "pine forest"
+	url := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyBIIj2oEdkCUI1_tE22Ox2hyUOA_hpJJq8"
 
-	requestBody, err := json.Marshal(map[string]interface{}{
-		"model": "gpt-3.5-turbo",
-		"messages": []map[string]string{
-			{"role": "user", "content": fmt.Sprintf("Give only 10 keywors from this name: %s", title)},
+	payload := map[string]interface{}{
+		"contents": []map[string]interface{}{
+			{
+				"parts": []map[string]string{
+					{"text": "Write 45 keywords from this title and each keywor consists from one word only: pine forest"},
+				},
+			},
 		},
-	})
+	}
+
+	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		fmt.Println("Ошибка создания JSON:", err)
+		log.Println("Error marshaling JSON:", err)
 		return ""
 	}
 
-	req, err := http.NewRequest("POST", API_URL, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println("Ошибка создания запроса:", err)
+		log.Println("Error creating request:", err)
 		return ""
 	}
-
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+API_KEY)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Ошибка выполнения запроса:", err)
+		log.Println("Error making request:", err)
 		return ""
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Ошибка чтения ответа:", err)
+		log.Println("Error reading response body:", err)
 		return ""
 	}
 
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		fmt.Println("Ошибка парсинга JSON:", err)
-		return ""
-	}
-	fmt.Println(result)
-	content := ""
-	if choices, ok := result["choices"].([]interface{}); ok && len(choices) > 0 {
-		content = choices[0].(map[string]interface{})["message"].(map[string]interface{})["content"].(string)
-		fmt.Println("Ключевые слова:", content)
-	} else {
-		fmt.Println("Не удалось получить ключевые слова.")
+	data := Response{}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		log.Println("Error parsing JSON:", err)
 	}
 
-	return content
+	re := regexp.MustCompile(`\d+\.\s*([A-Za-z]+)`)
+	matches := re.FindAllStringSubmatch(data.Candidates[0].Content.Parts[0].Text, -1)
+
+	var words []string
+	for _, match := range matches {
+		words = append(words, match[1])
+	}
+
+	return strings.Join(words, ",")
 }
