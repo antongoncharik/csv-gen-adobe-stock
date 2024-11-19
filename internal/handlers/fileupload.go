@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Response struct {
@@ -59,6 +60,25 @@ func UploadTemplateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
+	spinner := []rune{'|', '/', '-', '\\'}
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				for _, r := range spinner {
+					fmt.Printf("\rLoading... %c", r)
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
+		}
+	}()
+	defer func() {
+		done <- true
+	}()
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
@@ -91,11 +111,19 @@ func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
 
 	titles := SplitLines(string(textData))
 
+	const requestLimit = 3
+	const interval = time.Minute / requestLimit
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
 	keywords := make(map[string]string)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	wg.Add(len(titles))
+
 	for _, title := range titles {
+		<-ticker.C
+		wg.Add(1)
 		go func(t string) {
 			defer wg.Done()
 			kwrds := GetKeywords(t)
