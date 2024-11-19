@@ -72,7 +72,6 @@ func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
 
 	photos := r.MultipartForm.File["photos"]
 	photoNames := make([]string, len(photos))
-
 	for i, photoHeader := range photos {
 		photoNames[i] = photoHeader.Filename
 	}
@@ -115,10 +114,6 @@ func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
 		return
 	}
-}
-
-func SplitLines(text string) []string {
-	return strings.Split(strings.TrimSpace(text), "\n")
 }
 
 func GetKeywords(title string) string {
@@ -186,4 +181,8 @@ func GetKeywords(title string) string {
 	}
 
 	return strings.Join(words, ",")
+}
+
+func SplitLines(text string) []string {
+	return strings.Split(strings.TrimSpace(text), "\n")
 }
