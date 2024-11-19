@@ -90,22 +90,26 @@ func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	titles := splitLines(string(textData))
+	titles := SplitLines(string(textData))
 
-	for i := 0; i < len(photoNames); i++ {
-		data = append(data, Data{Name: photoNames[i], Title: titles[i], Keywords: "yfguhj,yuio,ghyjkl"})
-	}
-
-	var keywords string
+	keywords := make(map[string]string)
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		keywords = GetKeywords()
-	}()
+	var mu sync.Mutex
+	wg.Add(len(titles))
+	for _, title := range titles {
+		go func(t string) {
+			defer wg.Done()
+			kwrds := GetKeywords(t)
+			mu.Lock()
+			keywords[t] = kwrds
+			mu.Unlock()
+		}(title)
+	}
 	wg.Wait()
 
-	fmt.Println(keywords)
+	for i := 0; i < len(photoNames); i++ {
+		data = append(data, Data{Name: photoNames[i], Title: titles[i], Keywords: keywords[titles[i]]})
+	}
 
 	if err := tmpl.ExecuteTemplate(w, "table.html", data); err != nil {
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
@@ -113,18 +117,18 @@ func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func splitLines(text string) []string {
+func SplitLines(text string) []string {
 	return strings.Split(strings.TrimSpace(text), "\n")
 }
 
-func GetKeywords() string {
+func GetKeywords(title string) string {
 	url := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyBIIj2oEdkCUI1_tE22Ox2hyUOA_hpJJq8"
 
 	payload := map[string]interface{}{
 		"contents": []map[string]interface{}{
 			{
 				"parts": []map[string]string{
-					{"text": "Write 45 keywords from this title and each keywor consists from one word only: pine forest"},
+					{"text": fmt.Sprintf("Write 20 keywords from this title and each keywor consists from one word only: %s", title)},
 				},
 			},
 		},
@@ -151,6 +155,16 @@ func GetKeywords() string {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 400 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Println("Error reading response body:", err)
+			return ""
+		}
+		log.Printf("Error request: code %d, message: %s\n", resp.StatusCode, body)
+		return ""
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println("Error reading response body:", err)
@@ -160,7 +174,7 @@ func GetKeywords() string {
 	data := Response{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		log.Println("Error parsing JSON:", err)
+		log.Println("Error unmarshaling JSON:", err)
 	}
 
 	re := regexp.MustCompile(`\d+\.\s*([A-Za-z]+)`)
